@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, ImageOps, ImageFilter
 import pytesseract
@@ -11,8 +11,15 @@ import json
 
 app = FastAPI()
 
+# Serve static files (e.g., logo.png, JS, CSS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Serve index.html at the root
+@app.get("/", response_class=HTMLResponse)
+def serve_homepage():
+    return FileResponse("static/index.html")
+
+# CORS (optional, good for dev)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,7 +36,7 @@ def get_google_fonts():
             return json.load(f)
 
     try:
-        url = "https://www.googleapis.com/webfonts/v1/webfonts?key=AIzaSyCjT8DVkZFJwXvxaVKuhJ3xrW0XfRkPfwo"
+        url = "https://www.googleapis.com/webfonts/v1/webfonts?key=YOUR_GOOGLE_FONTS_API_KEY"
         response = requests.get(url)
         data = response.json()
         fonts = [
@@ -60,30 +67,19 @@ def find_similar_fonts(text, font_list):
     return matches if matches else font_list[:5]
 
 def preprocess_image(image):
-    if image.mode in ("RGBA", "LA"):
-        background = Image.new("RGB", image.size, (255, 255, 255))
-        background.paste(image, mask=image.split()[3])
-        image = background
-
     gray = ImageOps.grayscale(image)
-    contrast = ImageOps.autocontrast(gray)
-    sharpened = contrast.filter(ImageFilter.SHARPEN)
-    thresholded = sharpened.point(lambda x: 0 if x < 160 else 255, '1')
-    return thresholded
+    enhanced = gray.filter(ImageFilter.MedianFilter()).point(lambda x: 0 if x < 128 else 255, '1')
+    return enhanced
 
 @app.post("/identify-font")
 async def identify_font(file: UploadFile = File(...)):
     try:
         image_data = await file.read()
-        image = Image.open(io.BytesIO(image_data)).convert("RGBA")
+        image = Image.open(io.BytesIO(image_data)).convert("RGB")
         clean_image = preprocess_image(image)
-        clean_image.save("debug_cropped.png")
 
-        extracted_text = pytesseract.image_to_string(clean_image, lang="eng").strip()
-        print("🧠 OCR result:", repr(extracted_text))
-
-        if not extracted_text or len(extracted_text.strip()) == 0:
-            extracted_text = "Unknown"
+        extracted_text = pytesseract.image_to_string(clean_image).strip()
+        extracted_text = extracted_text.split("\n")[0] if extracted_text else "Unknown"
 
         fonts = get_google_fonts()
         matches = find_similar_fonts(extracted_text, fonts)
@@ -92,7 +88,5 @@ async def identify_font(file: UploadFile = File(...)):
             "text": extracted_text,
             "matches": matches
         })
-
     except Exception as e:
-        print("❌ Error:", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
