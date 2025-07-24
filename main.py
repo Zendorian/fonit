@@ -8,18 +8,18 @@ import io
 import requests
 import os
 import json
+import difflib
 
 app = FastAPI()
 
-# Serve static files (e.g., logo.png, JS, CSS)
+# Serve frontend
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Serve index.html at the root
 @app.get("/", response_class=HTMLResponse)
 def serve_homepage():
     return FileResponse("static/index.html")
 
-# CORS (optional, good for dev)
+# CORS (optional)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,7 +36,7 @@ def get_google_fonts():
             return json.load(f)
 
     try:
-        url = "https://www.googleapis.com/webfonts/v1/webfonts?key=YOUR_GOOGLE_FONTS_API_KEY"
+        url = "https://www.googleapis.com/webfonts/v1/webfonts?key=AIzaSyCjT8DVkZFJwXvxaVKuhJ3xrW0XfRkPfwo"
         response = requests.get(url)
         data = response.json()
         fonts = [
@@ -50,7 +50,7 @@ def get_google_fonts():
             json.dump(fonts, f)
         return fonts
     except Exception as e:
-        print("Using fallback font list:", e)
+        print("Font API fallback:", e)
         return [
             {"name": "Roboto", "url": "https://fonts.google.com/specimen/Roboto"},
             {"name": "Open Sans", "url": "https://fonts.google.com/specimen/Open+Sans"},
@@ -58,13 +58,11 @@ def get_google_fonts():
         ]
 
 def find_similar_fonts(text, font_list):
-    matches = []
-    if text:
-        for font in font_list:
-            name_lower = font['name'].lower()
-            if any(word in name_lower for word in text.lower().split()):
-                matches.append(font)
-    return matches if matches else font_list[:5]
+    if not text:
+        return font_list[:5]
+    font_names = [f['name'] for f in font_list]
+    matches = difflib.get_close_matches(text, font_names, n=5, cutoff=0.4)
+    return [f for f in font_list if f['name'] in matches]
 
 def preprocess_image(image):
     gray = ImageOps.grayscale(image)
@@ -76,10 +74,22 @@ async def identify_font(file: UploadFile = File(...)):
     try:
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data)).convert("RGB")
+
         clean_image = preprocess_image(image)
 
-        extracted_text = pytesseract.image_to_string(clean_image).strip()
-        extracted_text = extracted_text.split("\n")[0] if extracted_text else "Unknown"
+        # Optional: save for debugging
+        # clean_image.save("last_uploaded.png")
+
+        # OCR with config
+        custom_config = r'--psm 7 -c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        extracted_text = pytesseract.image_to_string(clean_image, config=custom_config).strip()
+        print("OCR Result:", repr(extracted_text))
+
+        # Sanitize OCR result
+        extracted_text = extracted_text.split("\n")[0] if extracted_text else ""
+
+        if not extracted_text:
+            return JSONResponse({"text": "No text found", "matches": []})
 
         fonts = get_google_fonts()
         matches = find_similar_fonts(extracted_text, fonts)
@@ -88,5 +98,8 @@ async def identify_font(file: UploadFile = File(...)):
             "text": extracted_text,
             "matches": matches
         })
+
     except Exception as e:
+        print("Error:", e)
         return JSONResponse(status_code=500, content={"error": str(e)})
+
