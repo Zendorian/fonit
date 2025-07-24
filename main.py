@@ -31,7 +31,7 @@ FONTS_CACHE_FILE = "cached_fonts.json"
 
 def get_google_fonts():
     if os.path.exists(FONTS_CACHE_FILE):
-        with open(F"cached_fonts.json", "r", encoding="utf-8") as f:
+        with open(FONTS_CACHE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     try:
         url = "https://www.googleapis.com/webfonts/v1/webfonts?key=AIzaSyCjT8DVkZFJwXvxaVKuhJ3xrW0XfRkPfwo"
@@ -39,8 +39,8 @@ def get_google_fonts():
         data = response.json()
         fonts = [
             {
-                "name": item["family"],
-                "url": f"https://fonts.google.com/specimen/{item["family"].replace(" ", "+")}"
+                "name": item['family'],
+                "url": f"https://fonts.google.com/specimen/{item['family'].replace(' ', '+')}"
             }
             for item in data.get("items", [])
         ]
