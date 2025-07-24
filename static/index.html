@@ -1,87 +1,41 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>typethefont – Identify Any Font</title>
+  <title>typethefont – Multi-word Match</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet" />
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f4f9ff;
-      padding: 2rem;
+    body { font-family: 'Segoe UI', sans-serif; background: #f4f9ff; padding: 2rem; }
+    header { display: flex; align-items: center; margin-bottom: 2rem; }
+    header img { height: 60px; margin-right: 1rem; }
+    header h1 { font-size: 2rem; margin: 0; color: #007bff; }
+    #drop-zone { border: 2px dashed #007bff; padding: 2rem; text-align: center; background: white; border-radius: 8px; cursor: pointer; }
+    #drop-zone.dragover { background: #e3f2fd; }
+    #preview { max-width: 100%; max-height: 500px; margin: 2rem auto 1rem; display: none; border-radius: 4px; }
+    button, .word-btn {
+      background: #007bff; color: white; padding: 0.5rem 1rem;
+      border: none; border-radius: 4px; cursor: pointer;
     }
-    header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 2rem;
-    }
-    header img {
-      height: 60px;
-      margin-right: 1rem;
-    }
-    header h1 {
-      font-size: 2rem;
-      margin: 0;
-      color: #007bff;
-    }
-    #drop-zone {
-      border: 2px dashed #007bff;
-      padding: 2rem;
-      text-align: center;
-      background: white;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    #drop-zone.dragover {
-      background: #e3f2fd;
-    }
-    #preview {
-      max-width: 100%;
-      max-height: 500px;
-      margin: 2rem auto 1rem;
-      display: none;
-      border-radius: 4px;
-    }
-    button {
-      background: #007bff;
-      color: white;
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
+    .word-btn { margin: 0.25rem; font-size: 0.9rem; }
+    .word-btn:hover { background: #0056b3; }
+    button:hover { background: #0056b3; }
     .font-result {
-      background: white;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1.5rem;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      background: white; padding: 1rem; border-radius: 8px;
+      margin-bottom: 1.5rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
     }
-    .font-result span {
-      display: block;
-      margin-top: 0.5rem;
-      font-size: 22px;
-    }
-    .font-result a {
-      color: #ff6600;
-    }
+    .font-result span { display: block; margin-top: 0.5rem; font-size: 22px; }
+    .font-result a { color: #ff6600; }
     .loader {
       border: 6px solid #f3f3f3;
       border-top: 6px solid #007bff;
       border-radius: 50%;
-      width: 40px;
-      height: 40px;
+      width: 40px; height: 40px;
       animation: spin 1s linear infinite;
-      margin: 0 auto;
+      margin: 1rem auto;
     }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -94,36 +48,30 @@
     <button type="submit">Crop & Identify Font</button>
   </form>
 </div>
-<div id="spinner" style="display:none; margin-top:2rem; text-align:center;">
-  <div class="loader"></div>
-  <p>Processing image...</p>
-</div>
+<div id="spinner" style="display:none;"><div class="loader"></div><p>Processing...</p></div>
+<div id="word-buttons" style="margin-top:2rem;"></div>
 <div id="results"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script>
 let cropper = null;
 const preview = document.getElementById('preview');
-const form = document.getElementById('upload-form');
 const drop = document.getElementById('drop-zone');
 const input = document.getElementById('image-upload');
 const resultsDiv = document.getElementById('results');
 const resetButton = document.getElementById('reset-button');
-const cropDataDisplay = document.getElementById('crop-data');
+const spinner = document.getElementById('spinner');
+const wordButtons = document.getElementById('word-buttons');
 
 drop.addEventListener('click', () => input.click());
 drop.addEventListener('dragover', e => {
-  e.preventDefault();
-  drop.classList.add('dragover');
+  e.preventDefault(); drop.classList.add('dragover');
 });
 drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
 drop.addEventListener('drop', e => {
-  e.preventDefault();
-  drop.classList.remove('dragover');
+  e.preventDefault(); drop.classList.remove('dragover');
   const file = e.dataTransfer.files[0];
-  if (file) {
-    input.files = e.dataTransfer.files;
-    handleFile(file);
-  }
+  if (file) { input.files = e.dataTransfer.files; handleFile(file); }
 });
 input.addEventListener('change', e => {
   const file = e.target.files[0];
@@ -136,74 +84,84 @@ function handleFile(file) {
     preview.onload = () => {
       preview.style.display = "block";
       if (cropper) cropper.destroy();
-      cropper = new Cropper(preview, {
-        aspectRatio: NaN,
-        viewMode: 1,
-        zoomable: true,
-        scalable: true
-      });
+      cropper = new Cropper(preview, { viewMode: 1, aspectRatio: NaN });
     };
   };
   reader.readAsDataURL(file);
 }
 resetButton.addEventListener('click', () => {
-  if (cropper) {
-    cropper.destroy();
-    cropper = null;
-  }
-  preview.src = '';
-  preview.style.display = 'none';
-  resultsDiv.innerHTML = '';
+  if (cropper) { cropper.destroy(); cropper = null; }
+  preview.src = ''; preview.style.display = 'none';
+  resultsDiv.innerHTML = ''; wordButtons.innerHTML = '';
   input.value = '';
 });
-form.addEventListener('submit', async function (e) {
+
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!cropper) return;
-  document.getElementById("spinner").style.display = "block";
+
+  spinner.style.display = "block";
   resultsDiv.innerHTML = '';
-  document.querySelector("form button").disabled = true;
+  wordButtons.innerHTML = '';
   resetButton.disabled = true;
-  const canvas = cropper.getCroppedCanvas();
-  canvas.toBlob(async function (blob) {
+
+  cropper.getCroppedCanvas().toBlob(async (blob) => {
     const formData = new FormData();
-    formData.append('file', blob, 'cropped.png');
+    formData.append('file', blob, 'crop.png');
+
     try {
       const response = await fetch('/identify-font', {
         method: 'POST',
         body: formData
       });
       const data = await response.json();
-      document.getElementById("spinner").style.display = "none";
-      document.querySelector("form button").disabled = false;
+      spinner.style.display = "none";
       resetButton.disabled = false;
-      resultsDiv.innerHTML = '<h2>Matching Fonts</h2>';
-      if (data.text) {
-        resultsDiv.innerHTML += `<p><strong>Detected Text:</strong> ${data.text}</p>`;
+
+      if (!data.words || data.words.length === 0) {
+        resultsDiv.innerHTML = '<p>No text found.</p>';
+        return;
       }
-      if (data.matches) {
-        data.matches.forEach(font => {
-          const linkTag = document.createElement('link');
-          linkTag.rel = 'stylesheet';
-          linkTag.href = `https://fonts.googleapis.com/css2?family=${font.name.replace(/ /g, '+')}&display=swap`;
-          document.head.appendChild(linkTag);
-          const fontBlock = document.createElement('div');
-          fontBlock.className = 'font-result';
-          fontBlock.innerHTML = `
-            <strong>${font.name}</strong><br>
-            <span style="font-family: '${font.name}', sans-serif;">${data.text}</span><br>
-            <a href="${font.url}" target="_blank">View Font</a>
-          `;
-          resultsDiv.appendChild(fontBlock);
-        });
-      }
+
+      data.words.forEach(word => {
+        const btn = document.createElement('button');
+        btn.className = 'word-btn';
+        btn.textContent = word;
+        btn.onclick = () => showFontsForWord(word, data.matches[word] || []);
+        wordButtons.appendChild(btn);
+      });
+
+      showFontsForWord(data.words[0], data.matches[data.words[0]] || []);
     } catch (err) {
-      document.getElementById("spinner").style.display = "none";
-      resultsDiv.innerHTML = 'Error identifying font.';
-      document.querySelector("form button").disabled = false;
+      spinner.style.display = "none";
       resetButton.disabled = false;
+      resultsDiv.innerHTML = '<p>Error processing image.</p>';
     }
   }, 'image/png');
 });
+
+function showFontsForWord(word, matches) {
+  resultsDiv.innerHTML = `<h2>Fonts Matching: "${word}"</h2>`;
+  if (!matches.length) {
+    resultsDiv.innerHTML += '<p>No matches found.</p>';
+    return;
+  }
+  matches.forEach(font => {
+    const linkTag = document.createElement('link');
+    linkTag.rel = 'stylesheet';
+    linkTag.href = `https://fonts.googleapis.com/css2?family=${font.name.replace(/ /g, '+')}&display=swap`;
+    document.head.appendChild(linkTag);
+
+    const block = document.createElement('div');
+    block.className = 'font-result';
+    block.innerHTML = `
+      <strong>${font.name}</strong><br>
+      <span style="font-family: '${font.name}', sans-serif;">${word}</span><br>
+      <a href="${font.url}" target="_blank">View Font</a>
+    `;
+    resultsDiv.appendChild(block);
+  });
+}
 </script>
 </body>
 </html>
