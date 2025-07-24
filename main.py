@@ -52,8 +52,9 @@ def get_google_fonts():
 
 def preprocess_image(image):
     gray = ImageOps.grayscale(image)
-    enhanced = gray.filter(ImageFilter.MedianFilter()).point(lambda x: 0 if x < 128 else 255, '1')
-    return enhanced
+    enhanced = gray.filter(ImageFilter.MedianFilter())
+    bw = enhanced.point(lambda x: 0 if x < 160 else 255, '1')
+    return bw
 
 def find_matches(words, fonts):
     matches = {}
@@ -69,7 +70,7 @@ async def identify_font(file: UploadFile = File(...)):
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data)).convert("RGB")
         image = preprocess_image(image)
-        config = r'--psm 6 -c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        config = r'--psm 6
         text = pytesseract.image_to_string(image, config=config).strip()
         print("OCR text:", repr(text))
         if not text:
